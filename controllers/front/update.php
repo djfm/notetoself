@@ -33,6 +33,7 @@ class NoteToSelfUpdateModuleFrontController extends ModuleFrontController
 
 		$response = $this->module->updateNotes($id_product, $notes);		
 
+		header('Content-Type: application/json');
 		die(Tools::jsonEncode($response));
 	}
 }

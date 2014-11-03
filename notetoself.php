@@ -107,7 +107,14 @@ class NoteToSelf extends Module
 
 	public function getNotes($id_product)
 	{
-		$sql = 'SELECT notes FROM PREFIX_notetoself_notes WHERE id_guest = '.(int)$this->context->customer->id_guest;
+		$sql = 'SELECT notes FROM PREFIX_notetoself_notes WHERE id_guest = :id_guest AND id_product = :id_product';
+
+		$sql = str_replace(
+			array(':id_guest', ':id_product'),
+			array((int)$this->context->customer->id_guest, (int)$id_product),
+			$sql
+		);
+
 		$sql = $this->setPrefix($sql);
 		$result = Db::getInstance()->ExecuteS($sql);
 		if (!empty($result)) {
@@ -121,10 +128,17 @@ class NoteToSelf extends Module
 	{
 		$id_product = $args['product']->id;
 
+		$messages = array(
+			'saved' 	=> $this->l('Notes saved!'),
+			'oops'		=> $this->l('Oops, something went wrong, sorry!'),
+			'saving'	=> $this->l('Saving your changes...')
+		);
+
 		$this->context->smarty->assign(array(
 			'notetoself_id_product' 			=> $id_product,
 			'notetoself_update_controller_url' 	=> $this->getControllerLink(),
-			'notetoself_notes'					=> $this->getNotes($id_product)
+			'notetoself_notes'					=> $this->getNotes($id_product),
+			'notetoself_messages'				=> Tools::jsonEncode($messages),
 		));
 
 		$this->context->controller->addCSS($this->_path.'/css/notetoself.css', 'all');
