@@ -38,16 +38,98 @@ class NoteToSelf extends Module
 		$this->bootstrap = true;
 		$this->displayName = $this->l('Note To Self');
 		$this->description = $this->l('Let customers leave notes for themselves on your product sheets.');
+		$this->controllers = array('update');
 		parent::__construct();
+	}
+
+	private function setPrefix($sql) {
+		return str_replace('PREFIX_', _DB_PREFIX_, $sql);
+	}
+
+	public function createTable()
+	{
+		$sql = 'CREATE TABLE PREFIX_notetoself_notes (
+			id_guest 	int(10) unsigned NOT NULL default 0		,
+			id_product 	int(10) unsigned NOT NULL default 0		,
+			notes 		TEXT 			 NOT NULL 				,
+			UNIQUE INDEX (id_guest, id_product)
+		);';
+	
+		$sql = $this->setPrefix($sql);
+
+		return Db::getInstance()->execute($sql);
+	}
+
+	public function dropTable()
+	{
+		$sql = 'DROP TABLE PREFIX_notetoself_notes';
+	
+		$sql = $this->setPrefix($sql);
+
+		return Db::getInstance()->execute($sql);
 	}
 
 	public function install()
 	{
-		return parent::install() && $this->registerHook('productFooter');
+		return parent::install() && $this->registerHook('productFooter') && $this->createTable();
 	}
 
-	public function hookProductFooter()
+	public function unInstall()
 	{
+		return parent::unInstall() && $this->dropTable();
+	}
+
+	public function getControllerLink($params = array())
+	{
+		return $this->context->link->getModuleLink($this->name, 'update', $params);
+	}
+
+	public function updateNotes($id_product, $notes)
+	{
+		$sql = 'REPLACE INTO PREFIX_notetoself_notes (id_guest, id_product, notes)
+				VALUES (:id_guest, :id_product, \':notes\')
+		';
+
+		$sql = str_replace(
+			array(':id_guest', ':id_product', ':notes'),
+			array((int)$this->context->customer->id_guest, (int)$id_product, pSQL($notes)),
+			$sql
+		);
+
+		$sql = $this->setPrefix($sql);
+
+		if (Db::getInstance()->execute($sql)) {
+			return array('success' => true);
+		} else {
+			return array('success' => false);
+		}
+	}
+
+	public function getNotes($id_product)
+	{
+		$sql = 'SELECT notes FROM PREFIX_notetoself_notes WHERE id_guest = '.(int)$this->context->customer->id_guest;
+		$sql = $this->setPrefix($sql);
+		$result = Db::getInstance()->ExecuteS($sql);
+		if (!empty($result)) {
+			return $result[0]['notes'];
+		} else {
+			return "";
+		}
+	}
+
+	public function hookProductFooter($args)
+	{
+		$id_product = $args['product']->id;
+
+		$this->context->smarty->assign(array(
+			'notetoself_id_product' 			=> $id_product,
+			'notetoself_update_controller_url' 	=> $this->getControllerLink(),
+			'notetoself_notes'					=> $this->getNotes($id_product)
+		));
+
+		$this->context->controller->addCSS($this->_path.'/css/notetoself.css', 'all');
+		$this->context->controller->addJS($this->_path.'/js/notetoself.js', 'all');
+		
 		return $this->display(__FILE__, 'views/templates/hook/productFooter.tpl');
 	}
 }
